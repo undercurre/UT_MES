@@ -1,0 +1,157 @@
+<template>
+ <div>
+
+                         <!-- <Manufacturing :WoNoBer="540770"/> -->
+<table class="ListTable table table-striped" style="font-size: 14px">
+    <thead>
+      <tr>
+        <td>{{ $t("ProcessDetsils._1") }}</td>
+        <td>{{ $t("ProcessDetsils._2") }}</td>
+        <td>{{ $t("ProcessDetsils._3") }}</td>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="(item, index) in RoutesData" :key="index">
+        <th>{{ item.CURRENT_NAME }}</th>
+        <th>{{ item.REPAIR_NAME }}</th>
+        <th>{{ item.REWORK_NAME }}</th>
+      </tr>
+    </tbody>
+  </table>
+
+ </div>
+
+</template>
+
+<script>
+import { Index, LoadRouteConfig } from '@/api/SfcsRoutes'
+export default {
+  name: 'Manufacturing',
+  data () {
+    return {
+      // 制程表格
+      currentBox: [],
+      repairBox: [],
+      GetNoSetNoRoute: [],
+      defaultReworkBox: [],
+      RoutesData: []
+    }
+  },
+  props: {
+    WoNoBer: {
+      type: [String, Number],
+      required: true
+    }
+  },
+  created () {
+    this.getIndex()
+  },
+  methods: {
+    async getIndex () {
+      const res = await Index()
+      if (res.Result) {
+        const data = res.Result
+        this.currentBox = data.CurrentOperationList // 当前工序
+        this.repairBox = data.RepairOperationList // 维修工序
+        this.reworkBox = data.CurrentOperationList// 返工工序
+        this.defaultReworkBox = this.reworkBox
+        this.GetNoSetNoRoute = data.GetNoSetNoRoute[0] || []
+      }
+
+      this.getProcessDetsils() // 工单序号
+    },
+    // 过滤返工工序数据
+    filterReworkBox (data) {
+      this.$nextTick(() => {
+        const tmpList = []
+        data.map((item) => {
+          tmpList.push(item.CURRENT_OPERATION_ID)
+        })
+        const res = this.defaultReworkBox.filter((val) => {
+          return tmpList.indexOf(val.ID) !== -1
+        })
+        this.reworkBox = res
+        this.reworkBox.push(this.GetNoSetNoRoute)
+
+        for (let i = 0; i < data.length; i++) {
+          for (let j = 0; j < this.currentBox.length; j++) {
+            // 主工序
+            if (data[i].CURRENT_OPERATION_ID === this.currentBox[j].ID) {
+              data[i].CURRENT_NAME = this.currentBox[j].DESCRIPTION
+            }
+          }
+          for (let j = 0; j < this.repairBox.length; j++) {
+            // 维修工序
+            if (data[i].REPAIR_OPERATION_ID === this.repairBox[j].ID) {
+              data[i].REPAIR_NAME = this.repairBox[j].DESCRIPTION
+            }
+          }
+          for (let j = 0; j < this.reworkBox.length; j++) {
+            // 返工工序
+            if (data[i].REWORK_OPERATION_ID === this.reworkBox[j].ID) {
+              data[i].REWORK_NAME = this.reworkBox[j].DESCRIPTION
+            }
+          }
+        }
+        this.RoutesData = res.Result = data
+        console.log(data)
+      })
+      this.$forceUpdate()
+    },
+    async getProcessDetsils () {
+      const res = await LoadRouteConfig({ ROUTE_ID: this.WoNoBer })
+      if (res.Result) {
+        this.filterReworkBox(res.Result)
+      }
+    }
+  }
+}
+</script>
+
+<style>
+.ListTable {
+  width: 100%;
+  margin: 0px;
+  background-color: transparent;
+  text-align: center;
+  table-layout: fixed;
+  font-size: 12px;
+  margin-top: 12px;
+  background: #37587D;
+}
+
+.ListTable .table>thead:first-child>tr:first-child>th {
+  text-align: center;
+  font-weight: bold;
+}
+
+.ListTable .table>thead>tr>th {
+  vertical-align: bottom;
+  border-bottom: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ListTable .table>tbody>tr>td {
+  border-top: none;
+  vertical-align: middle;
+}
+
+.ListTable .table-striped>tbody>tr:nth-of-type(odd) {
+  background-color: #2b2b5b;
+}
+
+.ListTable td {
+  padding: 0px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ListTable th {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+</style>

@@ -1,0 +1,447 @@
+<template>
+  <d2-container class="MesQualityInfo">
+    <template slot="header">
+      <custom-container-header
+        :isExport="false"
+        :isExportTpl="false"
+        :isImport="false"
+      >
+        <el-input
+          v-model="formData.WO_NO"
+          :placeholder="$t('WorkWarehous._1')"
+          clearable
+          style="width: 120px"
+          @keyup.enter.native="searchClick"
+        />&nbsp;
+        <el-input
+          v-model="formData.PART_NO"
+          :placeholder="$t('WorkWarehous._2')"
+          clearable
+          style="width: 120px"
+          @keyup.enter.native="searchClick"
+        />&nbsp;
+        <el-button
+          type="primary"
+          icon="el-icon-search"
+          @click.prevent="searchClick"
+          >{{ $t("publics.btn.search") }}</el-button
+        >
+        <!-- 清空 -->
+        <el-button
+          type="danger"
+          icon="el-icon-delete"
+          class="common-top"
+          @click="remove_but()"
+          >{{ $t("WorkWarehous._5") }}</el-button
+        >
+        <!-- 新增 -->
+        <el-button
+          v-if="$btnList.indexOf('warehousSave') !== -1"
+          type="success"
+          icon="el-icon-plus"
+          class="common-top"
+          @click.prevent="add_but"
+          >{{ $t("SfcsEquipKeep._9") }}</el-button
+        >
+        <!-- 编辑 -->
+        <el-button
+          v-if="$btnList.indexOf('warehousSave') !== -1"
+          type="primary"
+          icon="el-icon-edit"
+          class="common-top"
+          @click.prevent="edit_but"
+          >{{ $t("SfcsEquipKeep._10") }}</el-button
+        >
+      </custom-container-header>
+    </template>
+
+    <div class="block-one">
+      <div>
+        <vxe-table
+          ref="xTable"
+          border
+          class="table-container1"
+          resizable
+          height="100%"
+          size="medium"
+          align="center"
+          highlight-hover-row
+          highlight-current-row
+          show-overflow
+          auto-resize
+          keep-source
+          stripe
+          :sort-config="{ trigger: 'cell' }"
+          :loading="mainLoading"
+          :data="mainTable"
+          @cell-click="cellClick"
+        >
+          <vxe-table-column
+            type="seq"
+            sortable
+            title="序号"
+            width="80"
+          ></vxe-table-column>
+          <vxe-table-column
+            sortable
+            field="WO_NO"
+            title="工单号"
+            min-width="150"
+          />
+          <vxe-table-column
+            sortable
+            field="PART_NO"
+            title="料号"
+            min-width="180"
+          />
+          <vxe-table-column
+            sortable
+            field="OEM_PN"
+            title="OEM料号"
+            min-width="150"
+          />
+          <vxe-table-column
+            sortable
+            field="MODEL"
+            title="机种"
+            min-width="150"
+          />
+          <vxe-table-column
+            sortable
+            field="ROUTE_NAME"
+            title="制程"
+            align="center"
+            min-width="150"
+          />
+          <vxe-table-column
+            sortable
+            show-overflow
+            field="TARGET_QTY"
+            title="目标产量"
+            :edit-render="{ name: 'input' }"
+            align="center"
+            min-width="140"
+          />
+          <vxe-table-column
+            sortable
+            show-overflow
+            field="INPUT_QTY"
+            title="投入量"
+            :edit-render="{ name: 'input' }"
+            align="center"
+            min-width="130"
+          />
+          <vxe-table-column
+            sortable
+            min-width="120"
+            field="OUTPUT_QTY"
+            title="产出量"
+          />
+          <vxe-table-column
+            sortable
+            min-width="120"
+            field="INBOUND_QTY"
+            title="入库数量"
+          />
+          <vxe-table-column
+            sortable
+            min-width="180"
+            field="ACTUAL_DUE_DATE"
+            title="生成日期"
+          />
+          <vxe-table-column
+            :title="$t('publics.field.operate')"
+            width="150"
+            align="center"
+            fixed="right"
+          >
+            <template slot-scope="scope">
+              <el-button type="primary" @click.prevent="warehous_but(scope.row)"
+                >入库</el-button
+              >
+              <el-button type="success" @click.prevent="edit_but(scope.row)"
+                >编辑</el-button
+              >
+            </template>
+          </vxe-table-column>
+        </vxe-table>
+      </div>
+      <div class="foot-page">
+        <el-pagination
+          :current-page="formData.Page"
+          :page-size="formData.Limit"
+          :page-sizes="[15, 25, 35, 45]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="mainTotal"
+          @size-change="handleMainSizeChange"
+          @current-change="handleMainCurrentChange"
+        />
+      </div>
+    </div>
+    <div class="block-two">
+      <div style="border-top: 1px solid rgb(229, 231, 237)">
+        <span
+          style="
+            display: block;
+            color: #8492a6;
+            font-size: 14px;
+            margin: 10px 0;
+          "
+          >完工入库记录详情</span
+        >
+      </div>
+      <div>
+        <vxe-table
+          ref="xTable"
+          border
+          class="table-container2"
+          resizable
+          height="100%"
+          size="medium"
+          align="center"
+          highlight-hover-row
+          highlight-current-row
+          show-overflow
+          auto-resize
+          keep-source
+          stripe
+          :sort-config="{ trigger: 'cell' }"
+          :loading="detailsLoading"
+          :data="detailsTabel"
+        >
+          <vxe-table-column
+            type="seq"
+            title="序号"
+            width="80"
+          ></vxe-table-column>
+
+          <vxe-table-column sortable field="TRAIN_NAME" title="工单号" />
+          <vxe-table-column sortable field="STANDARD" title="MES入库单号" />
+          <vxe-table-column sortable field="STANDARD" title="ERP完工单号" />
+          <vxe-table-column sortable field="STANDARD" title="入库数量" />
+          <vxe-table-column sortable field="STANDARD" title="入库时间" />
+          <vxe-table-column sortable field="STANDARD" title="入库人员" />
+          <vxe-table-column sortable field="STANDARD" title="入库状态" />
+          <vxe-table-column sortable field="STANDARD" title="处理信息" />
+          <vxe-table-column
+            :title="$t('publics.field.operate')"
+            width="180"
+            align="center"
+            fixed="right"
+          >
+            <template slot-scope="scope">
+                <el-button type="primary" @click="skillDetailsEdit(scope.row)">{{
+                $t("publics.btn.insert")
+              }}</el-button>
+              <el-button type="primary" @click="skillDetailsEdit(scope.row)">{{
+                $t("publics.btn.edit")
+              }}</el-button>
+              <el-button type="danger" @click="skillDetailsDelete(scope.row)">{{
+                $t("publics.btn.delete")
+              }}</el-button>
+            </template>
+          </vxe-table-column>
+        </vxe-table>
+      </div>
+      <div class="foot-page">
+        <el-pagination
+          :current-page="detailsData.Page"
+          :page-size="detailsData.Limit"
+          :page-sizes="[15, 25, 35, 45]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="detailsTotal"
+          @size-change="handleSkillSizeChange"
+          @current-change="handleSkillCurrentChange"
+        />
+      </div>
+    </div>
+
+    <!-- 入库/编辑 -->
+    <el-dialog
+      :close-on-click-modal="false"
+      v-dialogDrag
+      class="dialogskill"
+      title="入库/编辑"
+      width="40%"
+      :visible.sync="dialogWarehous"
+    >
+      <el-form
+      class="custom-form"
+      ref="detailsForm"
+       label-position="top"
+               label-width="80px"
+      :show-message="false"
+      size="small"
+      :model="detailsForm">
+        <el-form-item>
+          <el-row>
+            <el-col :span="11">
+                <el-form-item label="工单号" prop="name">
+                    <el-input v-model="detailsForm.WO_NO"></el-input>
+                </el-form-item>
+                <el-form-item label="ERP完工单号" prop="name">
+                    <el-input v-model="detailsForm.FINISHED_NO"></el-input>
+                </el-form-item>
+                <el-form-item label="状态" prop="name">
+                    <el-input v-model="detailsForm.STATUS"></el-input>
+                </el-form-item>
+                 <el-form-item label="创建时间" prop="name">
+                    <el-input v-model="detailsForm.CREATE_TIME" disabled></el-input>
+                </el-form-item>
+                <el-form-item label="修改时间" prop="name">
+                    <el-input v-model="detailsForm.UPDATE_TIME" disabled></el-input>
+                </el-form-item>
+            </el-col>
+
+             <el-col :span="11" :offset="2" >
+                 <el-form-item label="MES入库单号" prop="name">
+                    <el-input v-model="detailsForm.INBOUND_NO" disabled></el-input>
+                </el-form-item>
+                 <el-form-item label="入库数量" prop="name">
+                    <el-input v-model="detailsForm.INBOUND_QTY" disabled></el-input>
+                </el-form-item>
+                 <el-form-item label="入库信息" prop="name">
+                    <el-input v-model="detailsForm.INBOUND_INFO"></el-input>
+                </el-form-item>
+                 <el-form-item label="创建人" prop="name">
+                    <el-input v-model="detailsForm.CREATE_BY" disabled></el-input>
+                </el-form-item>
+                <el-form-item label="修改人" prop="name">
+                    <el-input v-model="detailsForm.UPDATE_BY" disabled></el-input>
+                </el-form-item>
+            </el-col>
+          </el-row>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="dialogSkill = false">{{
+          $t("ssc_rd.cancel")
+        }}</el-button>
+      </span>
+    </el-dialog>
+  </d2-container>
+</template>
+
+<script>
+import customContainerHeader from '@/components/custom-container-header'
+import {
+  SaveData,
+  LoadInboundWoList,
+  LoadInboundInfoListByWo
+} from '@/api/SfcsInboundRecordInfo'
+export default {
+  name: 'WorkWarehous',
+  components: {
+    customContainerHeader
+  },
+  data () {
+    return {
+      formData: {
+        WO_NO: '',
+        PART_NO: '',
+        Key: '',
+        Page: 1,
+        Limit: 15
+      },
+      RoutesListBox: [],
+      mainTable: [],
+      mainTotal: 0,
+      mainLoading: false,
+      detailsData: {
+        WO_ID: '',
+        Page: 1,
+        Limit: 15
+      },
+      detailsLoading: false,
+      detailsTabel: [],
+      detailsTotal: 0,
+      dialogWarehous: false, // 入库弹框
+      detailsForm: {
+        ID: '',
+        WO_ID: '',
+        WO_NO: '',
+        INBOUND_NO: '',
+        FINISHED_NO: '',
+        INBOUND_QTY: '',
+        STATUS: '',
+        INBOUND_INFO: '',
+        CREATE_TIME: '',
+        CREATE_BY: '',
+        UPDATE_TIME: '',
+        UPDATE_BY: ''
+      },
+      Status: [{ lable: '未处理', value: 0 }, { lable: '已处理', value: 1 }]
+    }
+  },
+  methods: {
+    // 入库操作
+    warehous_but (row) {
+      this.dialogWarehous = true
+      console.log(row)
+    },
+    searchClick () {
+      this.formData.Page = 1
+      this.LoadInboundWoList()
+    },
+    // 获取主表数据
+    async LoadInboundWoList () {
+      this.mainLoading = true
+      const res = await LoadInboundWoList(this.formData)
+      this.mainLoading = false
+      if (res.Result) {
+        this.mainTable = res.Result.data || []
+        this.mainTotal = res.Result.count || 0
+      }
+      console.log(res)
+    },
+    cellClick ({ row }) {
+      this.detailsData.WO_ID = row.ID
+      this.LoadInboundInfoListByWo()
+    },
+    // 获取明细数据
+    async LoadInboundInfoListByWo () {
+      this.detailsLoading = true
+      const res = await LoadInboundInfoListByWo(this.detailsData)
+      this.detailsLoading = false
+      if (res.Result) {
+        this.detailsTabel = res.Result.data || []
+        this.detailsTotal = res.Result.count || 0
+      }
+    },
+    handleSkillSizeChange (Limit) {
+      this.detailsData.Limit = Limit
+      this.LoadInboundInfoListByWo()
+    },
+    handleSkillCurrentChange (Page) {
+      this.detailsData.Page = Page
+      this.LoadInboundInfoListByWo()
+    },
+    handleMainSizeChange (Limit) {
+      this.formData.Limit = Limit
+      this.LoadInboundWoList()
+    },
+    handleMainCurrentChange (Page) {
+      this.formData.Page = Page
+      this.LoadInboundWoList()
+    }
+  },
+  created () {
+    this.LoadInboundWoList()
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+.table-container1 {
+  height: 350px;
+}
+.foot-page {
+  padding: 5px 0;
+}
+.table-container2 {
+  height: calc(100vh - 54px - 20px - 350px - 42px - 190px);
+}
+.dialogskill ::v-deep .el-dialog__body {
+  padding-top: 10px;
+}
+</style>

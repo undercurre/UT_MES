@@ -1,0 +1,1037 @@
+<template>
+  <d2-container>
+    <template slot="header">
+      <custom-container-header
+        exportMehodsName="exportData"
+        exportBtnName="ManagerExport"
+        importBtnName="ManagerImport"
+        exportTplName="ManagerExportTpl"
+        :uploadURl="uploadURl"
+      >
+        <el-input
+          clearable
+          v-model="formData.Key"
+          style="width: 200px"
+          class="filter-item"
+          :placeholder="$t('Manager.PleaseAccount')"
+          @keyup.enter.native="handleFilter"
+        />&nbsp;
+        <el-button
+          class="filter-item"
+          type="primary"
+          icon="el-icon-search"
+          @click="handleFilter"
+          >{{ $t("Manager.search") }}</el-button
+        >
+        <el-button
+          v-if="$btnList.indexOf('ManagerAdd') !== -1"
+          class="filter-item"
+          style="margin-left: 10px"
+          type="success"
+          icon="el-icon-plus"
+          @click="handleCreate"
+          >{{ $t("Manager.add") }}</el-button
+        >
+      </custom-container-header>
+    </template>
+    <div class="table-container">
+      <vxe-table
+        ref="xTable"
+        border
+        resizable
+        height="100%"
+        size="medium"
+        align="center"
+        highlight-hover-row
+        highlight-current-row
+        show-overflow
+        auto-resize
+        keep-source
+        stripe
+        :sort-config="{ trigger: 'cell' }"
+        :loading="loading"
+        :data="mainTable"
+      >
+        <vxe-table-column
+          sortable
+          field="User_Name"
+          :title="$t('Manager.userAccount')"
+          min-width="120"
+        />
+        <vxe-table-column
+          sortable
+          field="Nick_Name"
+          :title="$t('Manager.UserNic')"
+          min-width="150"
+        />
+        <vxe-table-column
+          sortable
+          field="Mobile"
+          :title="$t('Manager.phone')"
+          min-width="150"
+        />
+        <vxe-table-column
+          sortable
+          field="Work_Wechat_Id"
+          :title="$t('Manager.WeChat')"
+          min-width="150"
+        />
+        <vxe-table-column
+          sortable
+          field="Role_Name"
+          :title="$t('Manager.roles')"
+          min-width="120"
+        />
+        <vxe-table-column
+          sortable
+          field="Remark"
+          :title="$t('Manager.remark')"
+          min-width="150"
+        />
+        <vxe-table-column
+          sortable
+          width="150"
+          field="IsEnabled"
+          :title="$t('Manager.available')"
+          :edit-render="{ autofocus: '.custom-input', type: 'visible' }"
+        >
+          <template slot-scope="scope">
+            <div>
+              <el-switch
+                :disabled="$btnList.indexOf('Managerstate') == -1"
+                @change="change(scope)"
+                v-model="scope.row.IsEnabled"
+                :active-text="$t('publics.btn.yes')"
+                :inactive-text="$t('publics.btn.no')"
+                active-color="#13ce66"
+                inactive-color="#cccccc"
+                :active-value="true"
+                :inactive-value="false"
+              />
+            </div>
+          </template>
+        </vxe-table-column>
+        <vxe-table-column
+          :title="$t('as_src.tb_og')"
+          align="center"
+          fixed="right"
+          width="250"
+        >
+          <template slot-scope="scope">
+            <el-button
+              v-if="$btnList.indexOf('Manageredit') !== -1"
+              type="primary"
+              @click="handleEdit(scope)"
+              >{{ $t("ManagerRole.editPermission") }}</el-button
+            >
+            <el-button
+              v-if="$btnList.indexOf('Managerdelete') !== -1"
+              type="danger"
+              @click="handleDelete(scope)"
+              >{{ $t("ManagerRole.delete") }}</el-button
+            >
+            <el-button
+              type="success"
+              @click="handelSkill(scope)"
+              v-if="$btnList.indexOf('ManagerUserSkill') !== -1"
+              >{{ $t("publics.btn.userSkill") }}</el-button
+            >
+          </template>
+        </vxe-table-column>
+      </vxe-table>
+    </div>
+    <template slot="footer">
+      <el-pagination
+        :current-page="formData.Page"
+        :page-size="formData.Limit"
+        :page-sizes="[15, 25, 35, 45]"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="totalPage"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </template>
+
+    <!-- modal -->
+    <el-dialog
+      v-dialogDrag
+      :title="titleText"
+      :visible.sync="drawer"
+      width="40%"
+      :close-on-click-modal="false"
+    >
+      <div>
+        <el-form
+          ref="xuser"
+          :show-message="false"
+          :model="form"
+          :rules="rules"
+          label-width="120px"
+          label-position="right"
+        >
+          <el-form-item :label="$t('Manager.userAccount')" prop="USER_NAME">
+            <el-input
+              :value="form.USER_NAME"
+              :placeholder="$t('Manager.PleaseAccount')"
+              @input="
+                (e) => {
+                  form.USER_NAME = e;
+                  $forceUpdate();
+                }
+              "
+            />
+          </el-form-item>
+          <el-form-item :label="$t('Manager.roles')" prop="ROLE_ID">
+            <el-select
+              v-model="form.ROLE_ID"
+              style="width: 100%"
+              :placeholder="$t('Manager.pleaseRoles')"
+              @change="$forceUpdate()"
+            >
+              <el-option
+                v-for="item in roleList"
+                :key="item.Id"
+                :label="item.Role_Name"
+                :value="item.Id"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="'WMS角色'">
+            <el-select
+              multiple
+              v-model="wmsRoleIds"
+              @change="handleChangeWmsRoleIds"
+              clearable
+              filterable
+              style="width: 100%"
+            >
+              <el-option
+                v-for="item in wmsRoleList"
+                :key="item.ID"
+                :label="item.ROLE_NAME"
+                :value="item.ID"
+              ></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item :label="$t('Manager.UserNic')" prop="NICK_NAME">
+            <el-input
+              v-model="form.NICK_NAME"
+              :placeholder="$t('Manager.pleaseUserNic')"
+              @input="$forceUpdate()"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('Manager._3')" prop="ORGANIZE_ID_STRING">
+            <el-cascader
+              v-show="isFhow"
+              v-model="form.ORGANIZE_IDS"
+              :options="parentTreeList"
+              style="width: 100%"
+              :show-all-levels="false"
+              :props="casProps"
+              @change="handleChangeCascader"
+            ></el-cascader>
+          </el-form-item>
+          <el-form-item :label="$t('Manager.phone')">
+            <el-input
+              v-model="form.MOBILE"
+              type="text"
+              :placeholder="$t('Manager.pleasePhone')"
+              @input="$forceUpdate()"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('Manager.WeChat')">
+            <el-input
+              v-model="form.WORK_WECHAT_ID"
+              type="text"
+              :placeholder="$t('Manager.pleaseWeChat')"
+              @input="$forceUpdate()"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('Manager.available')">
+            <el-switch
+              v-model="form.ENABLED"
+              :active-text="$t('publics.btn.yes')"
+              :inactive-text="$t('publics.btn.no')"
+              active-color="#13ce66"
+              inactive-color="#cccccc"
+              @change="$forceUpdate()"
+            />
+          </el-form-item>
+          <el-form-item :label="$t('Manager.remark')">
+            <el-input
+              v-model="form.REMARK"
+              type="textarea"
+              :autosize="{ minRows: 3, maxRows: 5 }"
+              resize="none"
+              placeholder=" "
+              @input="$forceUpdate()"
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button
+          @click="resetPwd"
+          type="warning"
+          v-if="$btnList.indexOf('ManagerResetPwd') !== -1"
+          >{{ $t("publics.btn.resetPWD") }}</el-button
+        >
+        <el-button @click="cancel">{{ $t("publics.btn.cancel") }}</el-button>
+        <el-button type="primary" @click="onSubmit">{{
+          $t("publics.btn.makeSure")
+        }}</el-button>
+      </span>
+    </el-dialog>
+
+    <!-- 用户技能 -->
+    <el-dialog
+      :close-on-click-modal="false"
+      v-dialogDrag
+      :title="$t('publics.btn.userSkill')"
+      width="60%"
+      class="skill"
+      :visible.sync="dialogVisible"
+    >
+      <el-button
+        class="skillbtn"
+        style="margin-left: 10px"
+        type="success"
+        icon="el-icon-plus"
+        @click="handekSkillAdd"
+        >{{ $t("Manager.add") }}</el-button
+      >
+
+      <el-button
+        class="skillbtn"
+        style="margin-left: 10px"
+        type="primary"
+        icon="el-icon-check"
+        @click="handekSkillSave"
+        >{{ $t("Manager.save") }}</el-button
+      >
+
+      <div style="height: 500px; margin-bottom: 10px">
+        <vxe-table
+          ref="xSkillTable"
+          border
+          stripe
+          :sort-config="{ trigger: 'cell' }"
+          keep-source
+          highlight-hover-row
+          highlight-current-row
+          show-overflow
+          auto-resize
+          width="100%"
+          height="100%"
+          size="medium"
+          align="center"
+          :edit-rules="validRules"
+          :loading="SkillLoading"
+          :data="SkillTable"
+          :mouse-config="{ selected: true }"
+          :edit-config="{ trigger: 'click', mode: 'row', showStatus: true }"
+        >
+          <vxe-table-column
+            sortable
+            min-width="150"
+            show-overflow
+            field="USER_ID"
+            :title="$t('Manager.userAccount')"
+          />
+          <vxe-table-column
+            sortable
+            min-width="180"
+            show-overflow
+            field="TRAIN_NAME"
+            title="技能"
+          >
+            <template slot-scope="scope">
+              <el-select
+                v-model="scope.row.TRAIN_NAME"
+                filterable
+                clearable
+                placeholder="请选择技能名称"
+                style="width: 100%"
+                remote
+                :loading="skillListLoading"
+                @visible-change="visibleChange"
+              >
+                <div
+                  style="
+                    position: absolute;
+                    width: 100%;
+                    height: 6px;
+                    background: #fff;
+                    background: #fff;
+                    top: 0;
+                    z-index: 99;
+                  "
+                ></div>
+                <div
+                  style="
+                    position: absolute;
+                    width: 100%;
+                    height: 6px;
+                    background: #fff;
+                    background: #fff;
+                    bottom: 0;
+                    z-index: 99;
+                  "
+                ></div>
+                <div
+                  style="
+                    width: 600px;
+                    display: flex;
+                    padding: 0 20px 0 10px;
+                    position: sticky;
+                    top: 6px;
+                    background: #fff;
+                    z-index: 90;
+                  "
+                >
+                  <el-input
+                    v-model="skillListFrom.MEANING"
+                    @input="skillListSearchClick"
+                    @keyup.enter.native="skillListSearchClick"
+                    placeholder="请选择技能名称"
+                    clearable
+                  ></el-input>
+                  <el-button
+                    type="primary"
+                    icon="el-icon-search"
+                    @click.prevent="skillListSearchClick"
+                    >{{ $t("publics.btn.search") }}</el-button
+                  >
+                </div>
+                <el-option
+                  v-for="(item, index) in skillList"
+                  :key="index"
+                  :label="item.MEANING"
+                  :value="item.MEANING"
+                >
+                  <span style="float: left">{{ item.MEANING }}</span>
+                </el-option>
+                <div
+                  style="
+                    width: 600px;
+                    position: sticky;
+                    bottom: 6px;
+                    background: #fff;
+                    z-index: 90;
+                    padding-left: 15px;
+                  "
+                >
+                  <el-pagination
+                    :pager-count="5"
+                    :current-page="skillListFrom.Page"
+                    :page-size="skillListFrom.Limit"
+                    :page-sizes="[15, 25, 35, 45]"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    :total="skillListTotalPage"
+                    @size-change="handleSkillListSizeChange"
+                    @current-change="handleSkillListCurrentChange"
+                  />
+                </div>
+              </el-select>
+            </template>
+          </vxe-table-column>
+
+          <vxe-table-column
+            sortable
+            min-width="150"
+            show-overflow
+            field="GRADE"
+            title="分数"
+            :edit-render="{
+              name: '$input',
+              props: { type: 'number', min: '0' },
+            }"
+          />
+
+          <vxe-table-column
+            :title="$t('as_src.tb_og')"
+            align="center"
+            fixed="right"
+            width="120"
+          >
+            <template slot-scope="scope">
+              <el-button
+                v-if="$btnList.indexOf('ManagerSkilldelete') !== -1"
+                type="danger"
+                @click="handleDelete(scope)"
+                >{{ $t("ManagerRole.delete") }}</el-button
+              >
+            </template>
+          </vxe-table-column>
+        </vxe-table>
+      </div>
+      <el-pagination
+        :current-page="SkillData.Page"
+        :page-size="SkillData.Limit"
+        :page-sizes="[15, 25, 35, 45]"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="SkillTotalPage"
+        @size-change="handleSkillSizeChange"
+        @current-change="handleSkillCurrentChange"
+      />
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">{{
+          $t("ssc_rd.cancel")
+        }}</el-button>
+      </span>
+    </el-dialog>
+  </d2-container>
+</template>
+
+<script>
+import pagination from '@/views/mixin/page'
+import customContainerHeader from '@/components/custom-container-header'
+import {
+  Index,
+  page,
+  rolelist,
+  putObj,
+  Status,
+  DeleteEmployeeTrainGrade,
+  IsExistsName,
+  ResetPassword,
+  ExportData,
+  GetEmployeeTrainGrade,
+  SaveEmployeeTrainGrade
+} from '@/api/sys.user'
+import { sptLoadData as SfcsLoadData } from '@/api/SfcsParameters'
+import { LoadData as _LoadData, LoadUserOrganize } from '@/api/SysOrganize'
+import {
+  // eslint-disable-next-line camelcase
+  SaveUserRole as WMS_SaveUserRole,
+  // eslint-disable-next-line camelcase
+  GetRoleList as WMS_GetRoleList,
+  // eslint-disable-next-line camelcase
+  GetUserRole as WMS_GetUserRole
+} from '@/api/WMSRolesManager'
+export default {
+  name: 'Manager',
+  mixins: [pagination],
+  components: {
+    customContainerHeader
+  },
+  data () {
+    return {
+      mainTable: [],
+      loading: false,
+      titleText: '',
+      drawer: false,
+      form: {},
+      roleList: [],
+      // 验证
+      rules: {
+        USER_NAME: [
+          {
+            required: true,
+            message: this.$t('Manager.PleaseAccount'),
+            trigger: 'blur'
+          }
+        ],
+        NICK_NAME: [
+          {
+            required: true,
+            message: this.$t('Manager.pleaseUserNic'),
+            trigger: 'blur'
+          }
+        ],
+        ROLE_ID: [
+          {
+            required: true,
+            message: this.$t('Manager.pleaseRoles'),
+            trigger: 'blur'
+          }
+        ],
+        ORGANIZE_ID_STRING: [
+          {
+            required: true,
+            message: this.$t('Manager._3'),
+            trigger: 'blur'
+          }
+        ]
+      },
+      parentTreeList: [],
+      casProps: {
+        label: 'ORGANIZE_NAME',
+        value: 'ID',
+        children: 'children',
+        checkStrictly: true,
+        multiple: true,
+        emitPath: true
+      },
+      planData: [],
+      isFhow: true,
+      uploadURl: process.env.VUE_APP_BASE_IMG + 'api/Manager/SaveExcelData',
+      wmsRoleList: [],
+      wmsRoleIds: [],
+      dialogVisible: false,
+      SkillData: {
+        Key: '',
+        Page: 1,
+        Limit: 15
+      },
+      SkillTable: [],
+      SkillTotalPage: 0,
+      SkillLoading: false,
+      validRules: {
+        TRAIN_NAME: [{ required: true, message: '请选择技能名称' }],
+        GRADE: [{ required: true, message: '请输入分数信息' }]
+      },
+      CollectPartsSave: {
+        insertRecords: [],
+        updateRecords: []
+      },
+      skillListFrom: {
+        LOOKUP_TYPE: 'MES_SKILL_NAME',
+        Page: 1,
+        Limit: 15,
+        ENABLED: 'Y',
+        MEANING: ''
+      },
+      skillListLoading: false,
+      skillListTotalPage: 0
+    }
+  },
+  methods: {
+    changeUSER_NAME (e) {
+      // this.$forceUpdate()
+    },
+    changeROLE_ID (e) {
+      // this.$forceUpdate()
+    },
+    changeNICK_NAME (e) {
+      // this.$forceUpdate()
+    },
+    changeMOBILE (e) {
+      // this.$forceUpdate()
+    },
+    changeWORK_WECHAT_ID (e) {
+      // this.$forceUpdate()
+    },
+    changeENABLED (e) {
+      // this.$forceUpdate()
+    },
+    changeREMARK (e) {
+      // this.$forceUpdate()
+    },
+    handleSkillListSizeChange (Limit) {
+      this.skillListFrom.Limit = Limit
+      this.skillStack()
+    },
+    handleSkillListCurrentChange (Page) {
+      this.skillListFrom.Page = Page
+      this.skillStack()
+    },
+    // 技能搜索
+    skillListSearchClick () {
+      this.skillListFrom.Page = 1
+      this.skillStack()
+    },
+    visibleChange (e) {
+      if (!e) {
+        this.skillListFrom.MEANING = ''
+        this.skillStack()
+      }
+    },
+    // 技能列表
+    async skillStack () {
+      this.skillListLoading = true
+      const res = await SfcsLoadData(this.skillListFrom)
+      this.skillListLoading = false
+      if (res.Result) {
+        this.skillList = res.Result || []
+        this.skillListTotalPage = res.TotalCount || 0
+        console.log(this.skillList)
+        this.$forceUpdate()
+      }
+    },
+    // 用户技能
+    handelSkill ({ row }) {
+      if (row.User_Name) {
+        // console.log(row)
+        this.SkillData.Key = row.User_Name
+        this.handelSkillDataList()
+        this.dialogVisible = true
+      }
+    },
+    // 保存用户技能
+    handekSkillSave () {
+      var postdata = this.$refs.xSkillTable.getRecordset()
+      if (
+        postdata.insertRecords.length ||
+        postdata.removeRecords.length ||
+        postdata.updateRecords.length
+      ) {
+        this.$refs.xSkillTable.validate(async (valid) => {
+          if (valid) {
+            this.CollectPartsSave.insertRecords = postdata.insertRecords
+            this.CollectPartsSave.updateRecords = postdata.updateRecords
+            await SaveEmployeeTrainGrade(this.CollectPartsSave).then((res) => {
+              if (res.Result) {
+                this.handelSkillDataList()
+                this.$notify({
+                  title: this.$t('cdc._21'),
+                  message: this.$t('cdc._22'),
+                  type: 'success',
+                  duration: 2000
+                })
+              } else {
+                this.$message.error(this.$t('cdc._27'))
+              }
+              // this.CollectPartsSave = {}
+            })
+          }
+        })
+      } else {
+        this.$message({
+          showClose: true,
+          message: this.$t('cdc._26'),
+          type: 'warning'
+        })
+      }
+    },
+    // 添加用户技能
+    async handekSkillAdd (row) {
+      const record = {
+        USER_ID: this.SkillData.Key,
+        TRAIN_NAME: '',
+        GRADE: ''
+      }
+      this.$refs.xSkillTable.insertAt(record)
+    },
+    async handelSkillDataList () {
+      this.SkillLoading = true
+      const res = await GetEmployeeTrainGrade(this.SkillData)
+      this.SkillLoading = false
+      this.SkillTable = res.Result || []
+      // this.SkillTable = [{ USER_ID: this.SkillData.Key, TRAIN_NAME: 1, GRADE: 100 }]
+      this.SkillTotalPage = res.TotalCount || 0
+    },
+    handleSkillSizeChange (Limit) {
+      this.SkillData.Limit = Limit
+      this.handelSkillDataList()
+    },
+    handleSkillCurrentChange (Page) {
+      this.SkillData.Page = Page
+      this.handelSkillDataList()
+    },
+    async getIndex () {
+      const res = await Index()
+      if (res.Result) {
+        this.getLoadData()
+        this.getRole()
+        this.getTreeData()
+      }
+    },
+    handleChangeCascader (e) {
+      this.form.ORGANIZE_ID_STRING = []
+      if (e && e.length) {
+        e.map((item) => {
+          if (item && item.length) {
+            this.form.ORGANIZE_ID_STRING.push(item[item.length - 1])
+          }
+        })
+      }
+      this.form.ORGANIZE_ID_STRING = this.form.ORGANIZE_ID_STRING.join(',')
+      this.$forceUpdate()
+    },
+    async getTreeData () {
+      const res = await _LoadData({
+        Page: 1,
+        Limit: 100000000
+      })
+      this.planData = res.Result || []
+      this.parentTreeList = res.Result ? this.getTree(res.Result) : []
+    },
+    // 递归
+    getTree (data, pid = 0, level = 1) {
+      let arr = []
+      data.map((item) => {
+        if (item.PARENT_ORGANIZE_ID === pid) {
+          item.level = level
+          item.children = this.getTree(data, item.ID, level + 1)
+          item.disabled = item.ENABLED === 'N'
+          arr.push(item)
+        }
+      })
+      return arr
+    },
+    async exportData () {
+      this.loading = true
+      const res = await ExportData(this.formData)
+      this.loading = false
+      this.mainTable = res.Result || []
+      this.totalPage = res.TotalCount || 0
+    },
+    // 获取用户列表
+    async getLoadData () {
+      this.loading = true
+      const response = await page(this.formData)
+      this.loading = false
+      this.mainTable = response.Result || []
+      this.totalPage = response.TotalCount || 0
+    },
+    handleFilter () {
+      this.formData.Page = 1
+      this.getLoadData()
+    },
+    handleCreate () {
+      this.form = {}
+      this.drawer = true
+      this.titleText = this.$t('Manager._2')
+    },
+    // 获取角色列表
+    async getRole () {
+      const response = await rolelist()
+      if (response.Result) {
+        this.roleList = response.Result || []
+      } else {
+        this.roleList = []
+      }
+    },
+    change ({ $index, row }) {
+      this.statusArr.Id = row.Id
+      this.statusArr.Status = row.IsEnabled
+      this.$confirm(
+        this.$t('Manager.Modifystatus'),
+        this.$t('Manager.prompt'),
+        {
+          confirmButtonText: this.$t('Manager.confirm'),
+          cancelButtonText: this.$t('Manager.cancel'),
+          type: 'warning'
+        }
+      )
+        .then(async () => {
+          const response = await Status(this.statusArr)
+          if (response.Result) {
+            this.getLoadData()
+            this.$message({
+              type: 'success',
+              message: this.$t('Manager.Succfied')
+            })
+          } else {
+            this.getLoadData()
+          }
+        })
+        .catch(() => {
+          this.getLoadData()
+          this.$message({
+            type: 'info',
+            message: this.$t('Manager.edit')
+          })
+        })
+    },
+    async handleEdit ({ row }) {
+      this.$set(this.form, 'ID', row.Id)
+      this.$set(this.form, 'ROLE_ID', row.Role_Id)
+      this.$set(this.form, 'USER_NAME', row.User_Name)
+      this.$set(this.form, 'NICK_NAME', row.Nick_Name)
+      this.$set(this.form, 'MOBILE', row.Mobile || '')
+      this.$set(this.form, 'WORK_WECHAT_ID', row.Work_Wechat_Id || '')
+      this.$set(this.form, 'ENABLED', row.IsEnabled)
+      this.$set(this.form, 'REMARK', row.Remark || '')
+      this.$set(this.form, 'ORGANIZE_IDS', [])
+      await this.getPeopleList(row.Id)
+      // this.form.ORGANIZE_ID_STRING = this.form.ORGANIZE_IDS.join(',')
+      this.$set(
+        this.form,
+        'ORGANIZE_ID_STRING',
+        this.form.ORGANIZE_IDS.join(',')
+      )
+      this.drawer = true
+      this.titleText = this.$t('Manager._1')
+      // TODO 获取WMS用户角色列表
+      this.getWMSUserRoleList()
+    },
+    onSubmit () {
+      this.$refs.xuser.validate(async (valid, errInfo) => {
+        if (valid) {
+          const response = await IsExistsName(this.form)
+          if (response.Result !== void 0) {
+            if (response.Result) {
+              this.$message.error(this.$t('Manager.userExcite'))
+              return false
+            }
+            const result = await putObj(this.form)
+            if (result.Result) {
+              // TODO 保存WMS角色
+              this.handleSaveWMSRoleIds(this.form.USER_NAME)
+              this.form = {}
+              this.drawer = false
+              this.getLoadData()
+              this.$notify({
+                title: this.$t('Manager.success'),
+                message: this.$t('publics.tips.handleSuccess'),
+                type: 'success',
+                duration: 2000
+              })
+            }
+          }
+        } else {
+          try {
+            Object.keys(errInfo).forEach((item) => {
+              this.$message.error(errInfo[item][0].message)
+              throw Error(errInfo[item][0].message)
+            })
+          } catch (e) {
+            console.log(e.message)
+          }
+        }
+      })
+    },
+    cancel () {
+      this.form = {}
+      this.drawer = false
+    },
+    handleDelete ({ row }) {
+      this.$confirm(this.$t('Manager.deleteUser'), this.$t('Manager.prompt'), {
+        confirmButtonText: this.$t('Manager.confirm'),
+        cancelButtonText: this.$t('Manager.cancel'),
+        type: 'warning'
+      }).then(async () => {
+        const _response = await DeleteEmployeeTrainGrade(row)
+        console.log(_response)
+        if (_response.Result) {
+          this.$notify({
+            title: this.$t('Manager.success'),
+            message: this.$t('Manager.succDeleted'),
+            type: 'success',
+            duration: 2000
+          })
+          this.handelSkillDataList()
+        }
+      })
+    },
+    async getPeopleList (MANAGER_ID) {
+      const res = await LoadUserOrganize({
+        MANAGER_ID,
+        Page: 1,
+        Limit: 100000
+      })
+      const data = res.Result || []
+      this.form.ORGANIZE_IDS = []
+      data.map((item) => {
+        if (item.STATUS === 'Y') {
+          this.form.ORGANIZE_IDS.push(item.ORGANIZE_ID)
+        }
+      })
+      this.form.ORGANIZE_IDS = [...new Set(this.form.ORGANIZE_IDS)]
+      this.form.ORGANIZE_IDS = this.form.ORGANIZE_IDS.map((item) =>
+        this.reverseGetTree(this.planData, item)
+      )
+      this.isFhow = false
+      this.$nextTick(() => {
+        this.isFhow = true
+      })
+    },
+    // 递归
+    reverseGetTree (data, id) {
+      let arr = []
+      data.map((item) => {
+        if (item.ID === id) {
+          if (item.PARENT_ORGANIZE_ID) {
+            arr.push(...this.reverseGetTree(data, item.PARENT_ORGANIZE_ID))
+          }
+          arr.push(item.ID)
+        }
+      })
+      return arr
+    },
+    // 重置密码
+    resetPwd () {
+      this.$confirm(this.$t('Manager._5'), this.$t('Manager._6'), {
+        confirmButtonText: this.$t('Manager.confirm'),
+        cancelButtonText: this.$t('Manager.cancel'),
+        type: 'warning'
+      }).then(async () => {
+        const res = await ResetPassword(this.form)
+        if (res.Result) {
+          this.$notify({
+            title: this.$t('Manager.success'),
+            message: this.$t('Manager._7'),
+            type: 'success'
+          })
+        }
+      })
+    },
+    // TODO 获取WMS的角色列表
+    async getWMSRoleList () {
+      const res = await WMS_GetRoleList()
+      this.wmsRoleList = res.data || []
+    },
+    // TODO 获取用户的角色列表
+    async getWMSUserRoleList () {
+      const empno = this.form.USER_NAME
+      if (!empno) {
+        return false
+      }
+      const res = await WMS_GetUserRole(empno)
+      const data = res.data || []
+      this.wmsRoleIds = data.map((i) => i.ROLE_ID)
+    },
+    handleChangeWmsRoleIds (e) {
+      console.log(e)
+    },
+    async handleSaveWMSRoleIds (empno) {
+      if (!empno) {
+        return false
+      }
+      if (!this.wmsRoleIds || !this.wmsRoleIds.length) {
+        return false
+      }
+      const res = await WMS_SaveUserRole({
+        empno,
+        ids: this.wmsRoleIds
+      })
+      this.wmsRoleIds = []
+      return res.data
+    }
+  },
+  created () {
+    this.getIndex()
+    this.skillStack()
+    this.getWMSRoleList()
+  }
+  // watch: {
+  //   form: {
+  //     handler () {
+  //       this.$forceUpdate()
+  //     },
+  //     deep: true
+  //   }
+  // }
+}
+</script>
+
+<style lang="scss" scoped>
+.drawer-content {
+  padding: 0 20px;
+  position: relative;
+  height: calc(100vh - 46px - 32px);
+  box-sizing: border-box;
+  .el-form {
+    height: 100%;
+  }
+  .btn-bottom {
+    position: absolute;
+    bottom: 20px;
+    width: calc(100% - 40px);
+    div {
+      border-top: 1px solid rgb(236, 241, 246);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  }
+}
+.skill ::v-deep .el-dialog__body {
+  padding-top: 15px;
+}
+.skillbtn {
+  margin-bottom: 15px;
+}
+</style>

@@ -1,0 +1,91 @@
+<template>
+  <el-drawer
+    :visible.sync="drawer"
+    size="74%"
+    :with-header="false"
+    :modal="true"
+    @open="openEsop"
+    :wrapperClosable="false">
+    <div class="esopContent">
+      <div class="esopClose" @click="closeEsop">关闭E-SOP</div>
+      <div class="esopData"><SopSimple  v-bind="$attrs" :isEsopDrawer="isEsopDrawer"/></div>
+    </div>
+  </el-drawer>
+</template>
+
+<script>
+import SopSimple from '@/views/SOPsimple/SOP'
+export default {
+  name: 'ESOPDrawer',
+  components: {
+    SopSimple
+  },
+  data () {
+    return {
+      drawer: this.outDrawer
+    }
+  },
+  methods: {
+    setOutDrawer (val) {
+      this.drawer = val
+    },
+    openEsop () {
+      this.drawer = true
+      this.$emit('getOutDrawer', true)
+    },
+    closeEsop () {
+      this.drawer = false
+      this.$emit('getOutDrawer', false)
+    }
+  },
+  watch: {
+    outDrawer: {
+      handler (val) {
+        this.drawer = val
+      }
+    }
+  },
+  props: {
+    outDrawer: {
+      type: Boolean
+    },
+    isEsopDrawer: {
+      type: Boolean,
+      default: false
+    }
+  }
+}
+</script>
+
+<style scoped lang="scss">
+.esopContent{
+  width: 100%;
+  height: 100vh;
+}
+.esopClose{
+  width: 50px;
+  float: left;
+  height: 100vh;
+  color: #000;
+  writing-mode:vertical-lr;
+  text-align: center;
+  position: relative;
+  left: 10px;
+  letter-spacing: 8px;
+  font-weight: bold;
+  font-size: 22px;
+  cursor: pointer;
+  -webkit-touch-callout: none; /* iOS Safari */
+  -webkit-user-select: none; /* Chrome/Safari/Opera */
+  -khtml-user-select: none; /* Konqueror */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Non-prefixed version, currently
+  not supported by any browser */
+}
+.esopData{
+  width: calc(100% - 50px);
+  float: left;
+  height: 100vh;
+}
+</style>

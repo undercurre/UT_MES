@@ -1,0 +1,5 @@
+# 调试环境
+
+# 页面 title 前缀
+VUE_APP_TITLE=UTIMS管理平台
+VUE_APP_API=http://localhost:58778/api/

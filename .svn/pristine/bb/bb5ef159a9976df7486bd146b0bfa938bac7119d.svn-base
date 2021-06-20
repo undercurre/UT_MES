@@ -1,0 +1,8 @@
+# 开发环境
+
+# 页面 title 前缀
+VUE_APP_TITLE=UTIMS管理平台
+VUE_APP_API=http://192.168.100.173:58778/api/
+
+# 操作手册地址
+VUE_APP_DOCUMENT_URL=http://192.168.100.173:8080/Prog/pc/MES操作手册.pdf

@@ -1,0 +1,840 @@
+<template>
+  <d2-container>
+    <template slot="header">
+      <custom-container-header>
+        <el-input
+          v-model="formData.NAME"
+          placeholder="请输入工序名称"
+          clearable
+          style="width: 200px"
+          @keyup.enter.native="search_but"
+        />&nbsp;
+        <el-input
+          v-model="formData.DESC"
+          placeholder="请输入工序描述"
+          clearable
+          style="width: 200px"
+          @keyup.enter.native="search_but"
+        />&nbsp;
+        <el-button
+          type="primary"
+          icon="el-icon-search"
+          @click.prevent="search_but"
+          >{{ $t("publics.btn.search") }}</el-button
+        >
+        <el-button
+          type="danger"
+          icon="el-icon-delete"
+          @click.prevent="eliminateClick"
+          >{{ $t("srr._5") }}</el-button
+        >
+        <el-button type="success" icon="el-icon-edit-outline" @click="skillStackList"
+          >技能维护</el-button
+        >
+
+        <el-button type="success" icon="el-icon-user" @click="personSkill"
+          >人员技能维护</el-button
+        >
+      </custom-container-header>
+    </template>
+    <div class="block-one">
+      <div>
+        <vxe-table
+          ref="xTable"
+          border
+          class="table-container1"
+          resizable
+          height="100%"
+          size="medium"
+          align="center"
+          highlight-hover-row
+          highlight-current-row
+          show-overflow
+          auto-resize
+          keep-source
+          stripe
+          :sort-config="{ trigger: 'cell' }"
+          :loading="loading"
+          :data="mainTable"
+          @cell-click="cellClick"
+        >
+          <vxe-table-column
+            type="seq"
+            title="序号"
+            width="80"
+          ></vxe-table-column>
+          <vxe-table-column
+            sortable
+            field="OPERATION_NAME"
+            :title="$t('SfcsOperations._2')"
+          />
+          <vxe-table-column
+            sortable
+            field="DESCRIPTION"
+            :title="$t('SfcsOperations._3')"
+          />
+          <vxe-table-column
+            sortable
+            field="OPERATION_CATEGORY_NAME"
+            :title="$t('SfcsOperations._4')"
+          />
+          <vxe-table-column
+            sortable
+            field="OPERATION_CLASS_NAME"
+            :title="$t('SfcsOperations._17')"
+          />
+           <!-- <vxe-table-column sortable
+           field="ENABLED"
+           width="150"
+           :title="$t('MesFirstCheckItems._13')">
+          <template slot-scope="scope">
+            <el-switch
+              v-model="scope.row.ENABLED"
+              :active-text="$t('publics.btn.yes')"
+              :inactive-text="$t('publics.btn.no')"
+              active-color="#13ce66"
+              inactive-color="#cccccc"
+              active-value="Y"
+              inactive-value="N"
+              @change="enabledChange(scope.$index, scope.row)"
+            />
+          </template>
+        </vxe-table-column> -->
+          <vxe-table-column
+            :title="$t('publics.field.operate')"
+            width="130"
+            align="center"
+            fixed="right"
+          >
+            <template slot-scope="scope">
+              <el-button type="primary" @click.prevent="edit_but(scope.row)"
+                >添加技能</el-button
+              >
+            </template>
+          </vxe-table-column>
+        </vxe-table>
+      </div>
+      <div class="foot-page">
+        <el-pagination
+          :current-page="formData.Page"
+          :page-size="formData.Limit"
+          :page-sizes="[15, 25, 35, 45]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="totalPage"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </div>
+    <div class="block-two">
+      <div style="border-top: 1px solid rgb(229, 231, 237)">
+        <span
+          style="
+            display: block;
+            color: #8492a6;
+            font-size: 14px;
+            margin: 10px 0;
+          "
+          >工序技能明细</span
+        >
+      </div>
+      <div>
+        <vxe-table
+          ref="xTable"
+          border
+          class="table-container2"
+          resizable
+          height="100%"
+          size="medium"
+          align="center"
+          highlight-hover-row
+          highlight-current-row
+          show-overflow
+          auto-resize
+          keep-source
+          stripe
+          :sort-config="{ trigger: 'cell' }"
+          :loading="skillLoading"
+          :data="skillDetails"
+        >
+          <vxe-table-column
+            type="seq"
+            title="序号"
+            width="80"
+          ></vxe-table-column>
+
+          <vxe-table-column sortable field="TRAIN_NAME" title="技能名称" />
+          <vxe-table-column sortable field="STANDARD" title="评判标准" />
+          <vxe-table-column
+            :title="$t('publics.field.operate')"
+            width="180"
+            align="center"
+            fixed="right"
+          >
+            <template slot-scope="scope">
+              <el-button type="primary" @click="skillDetailsEdit(scope.row)">{{ $t("publics.btn.edit") }}</el-button>
+              <el-button type="danger" @click="skillDetailsDelete(scope.row)">{{
+                $t("publics.btn.delete")
+              }}</el-button>
+            </template>
+          </vxe-table-column>
+        </vxe-table>
+      </div>
+      <div class="foot-page">
+        <el-pagination
+          :current-page="skillData.Page"
+          :page-size="skillData.Limit"
+          :page-sizes="[15, 25, 35, 45]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="skillTotalPage"
+          @size-change="handleSkillSizeChange"
+          @current-change="handleSkillCurrentChange"
+        />
+      </div>
+    </div>
+
+    <!-- 工序添加技能 -->
+    <el-dialog
+      :close-on-click-modal="false"
+      v-dialogDrag
+      title="新增/编辑技能"
+      width="25%"
+      class="skill"
+      :visible.sync="dialogVisible"
+    >
+      <el-form
+        :show-message="false"
+        :model="skillForm"
+        :rules="rules"
+        ref="ruleForm"
+        label-width="80px"
+      >
+        <el-form-item label="技能名称" prop="TRAIN_NAME">
+          <el-select
+                  v-model="skillForm.TRAIN_NAME"
+                   filterable
+                   clearable
+                  placeholder="请选择技能名称"
+                   style="width: 100%"
+                   remote
+                   @visible-change="visibleChange">
+          <div style="position: absolute;width: 100%;height: 6px;background: #fff;background: #fff;top: 0;z-index: 99"></div>
+          <div style="position: absolute;width: 100%;height: 6px;background: #fff;background: #fff;bottom: 0;z-index: 99"></div>
+          <div style="width: 600px;display: flex;padding: 0 20px 0 10px;position: sticky;top: 6px;background: #fff;z-index: 90">
+            <el-input v-model="skillListFrom.MEANING"
+                      @input="skillListSearchClick"
+                      @keyup.enter.native="skillListSearchClick"
+                      placeholder="请选择技能名称"></el-input>
+            <el-button type="primary"
+                       icon="el-icon-search"
+                       @click.prevent="skillListSearchClick">{{ $t('publics.btn.search') }}</el-button>
+          </div>
+          <el-option v-for="(item,index) in skillList"
+                     :key="index"
+                     :value="item.MEANING"
+                     :label="item.MEANING">
+            <span style="float: left">{{ item.MEANING }}</span>
+          </el-option>
+          <div style="width: 600px;position: sticky;bottom: 6px;background: #fff;z-index: 90;padding-left: 15px">
+            <el-pagination :pager-count="5"
+                           :current-page="skillListFrom.Page"
+                           :page-size="skillListFrom.Limit"
+                           :page-sizes="[15, 25, 35, 45]"
+                           layout="total, sizes, prev, pager, next, jumper"
+                           :total="skillListTotalPage"
+                           @size-change="handleSkillListSizeChange"
+                           @current-change="handleSkillListCurrentChange" />
+          </div>
+        </el-select>
+
+        </el-form-item>
+
+        <el-form-item label="评判标准" prop="STANDARD">
+          <el-input
+            type="number"
+            placeholder="请输入评判标准"
+            onkeyup="this.value=this.value.replace(/[^\d\.]/g,'')"
+            v-model.number="skillForm.STANDARD"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">{{
+          $t("ssc_rd.cancel")
+        }}</el-button>
+        <el-button @click="skill_submit" type="primary">{{
+          $t("ssc_rd.sure")
+        }}</el-button>
+      </span>
+    </el-dialog>
+
+    <!-- 技能维护 -->
+    <el-dialog
+      :close-on-click-modal="false"
+      v-dialogDrag
+      class="dialogskill"
+      title="技能维护"
+      width="60%"
+      :visible.sync="dialogSkill"
+    >
+      <el-form ref="editForm" :model="editForm">
+        <el-form-item>
+          <el-input
+            clearable
+            v-model="skillListFrom.MEANING"
+            style="width: 200px"
+            @keyup.enter.native="skillListSearchClick"
+            placeholder="请输入技能名称"
+          />
+          <el-button
+            type="primary"
+            icon="el-icon-search"
+            @click.prevent="skillListSearchClick"
+            >{{ $t("publics.btn.search") }}</el-button
+          >
+          <el-button type="success" @click="skillListAdd" icon="el-icon-search">新增</el-button>
+          <el-button type="primary" @click="skillListSave" icon="el-icon-search">保存</el-button>
+        </el-form-item>
+      </el-form>
+      <div style="height: 500px; margin-bottom: 10px">
+        <vxe-table
+          ref="skillTable"
+          border
+          resizable
+          height="100%"
+          size="medium"
+          align="center"
+          highlight-hover-row
+          highlight-current-row
+          show-overflow
+          auto-resize
+          keep-source
+          stripe
+          :sort-config="{ trigger: 'cell' }"
+          :loading="skillListLoading"
+          :data="skillList"
+          :mouse-config="{ selected: true }"
+          :radio-config="{ labelField: 'name', trigger: 'row' }"
+          :edit-config="{ trigger: 'click', mode: 'row', showStatus: true }"
+        >
+          <vxe-table-column type="radio" title="选择" width="60" />
+
+           <vxe-table-column sortable field="LOOKUP_TYPE"
+                          title="类型"
+                          min-width="180"/>
+            <vxe-table-column sortable field="LOOKUP_CODE"
+                          :title="$t('SfcsParameters._4')"
+                          min-width="120"
+                          :edit-render="{name: '$input', props: {type: 'number',min:'0'}}" />
+
+          <vxe-table-column
+            sortable
+            field="MEANING"
+            title="技能名称"
+            min-width="180"
+            :edit-render="{ name: 'input' }"
+          />
+
+          <vxe-table-column
+            sortable
+            field="ENABLED"
+            :title="$t('ssc._9')"
+            min-width="120"
+            :edit-render="{ autofocus: '.custom-input', type: 'visible' }"
+          >
+            <template v-slot:edit="{ row }">
+              <div class="rddselect">
+                <el-switch
+                  v-model="row.ENABLED"
+                  :active-text="$t('publics.btn.yes')"
+                  :inactive-text="$t('publics.btn.no')"
+                  active-color="#13ce66"
+                  inactive-color="#cccccc"
+                  active-value="Y"
+                  inactive-value="N"
+                />
+              </div>
+            </template>
+          </vxe-table-column>
+          <vxe-table-column
+
+            :title="$t('plbd.tb_og')"
+            min-width="120"
+            align="center"
+            fixed="right"
+          >
+            <template v-slot="{ row }">
+              <el-button
+                type="danger"
+                @click="removeClick(row, row.$index)"
+                v-if="$btnList.indexOf('SfcsParametersRemove') !== -1"
+                >{{ $t("publics.btn.delete") }}</el-button
+              >
+            </template>
+          </vxe-table-column>
+        </vxe-table>
+      </div>
+      <el-pagination
+        :current-page="skillListFrom.Page"
+        :page-size="skillListFrom.Limit"
+        :page-sizes="[15, 25, 35, 45]"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="skillListTotalPage"
+        @size-change="handleSkillListSizeChange"
+        @current-change="handleSkillListCurrentChange"
+      />
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="dialogSkill = false">{{
+          $t("ssc_rd.cancel")
+        }}</el-button>
+      </span>
+    </el-dialog>
+  </d2-container>
+</template>
+
+<script>
+import pagination from '@/views/mixin/page'
+import customContainerHeader from '@/components/custom-container-header'
+import {
+  Index,
+  AddOrModify
+} from '@/api/SfcsOperations'
+import {
+  LoadOperationData,
+  LoadSkillStandardData,
+  AddOrModifySave,
+  DeleteOneById,
+  ChangeEnabled
+} from '@/api/SopSkillStandard'
+import {
+  sptLoadData as SfcsLoadData,
+  sptSaveData as SfcdSaveData
+} from '@/api/SfcsParameters'
+import { mapGetters } from 'vuex'
+import { GetParametersList } from '@/api/sys.user'
+export default {
+  name: 'SopSkillStandard',
+  components: {
+    customContainerHeader
+  },
+  mixins: [pagination],
+  computed: {
+    ...mapGetters([
+      'userinfo'
+    ])
+  },
+  data () {
+    return {
+      formData: {
+        NAME: '',
+        DESC: '',
+        Page: 1,
+        Limit: 15
+      },
+      OPERATIONList: [],
+      loading: false,
+      mainTable: [],
+      totalPage: 0,
+      category: [],
+      skillData: {
+        Key: '',
+        Limit: 15,
+        Page: 1
+      },
+      skillLoading: false,
+      skillTotalPage: 0,
+      skillDetails: [],
+      dialogVisible: false,
+      skillForm: {
+        ID: '',
+        TRAIN_NAME: '',
+        STANDARD: '',
+        OPERATION_ID: ''
+      },
+      rules: {
+        TRAIN_NAME: {
+          required: true,
+          message: '请选择技能名称',
+          trigger: 'change'
+        },
+        STANDARD: [
+          { required: true, message: '请输入评判标准', trigger: 'blur' }
+        ]
+      },
+
+      skillList: [], // 技能列表
+      skillListFrom: {
+        LOOKUP_TYPE: 'MES_SKILL_NAME',
+        Page: 1,
+        Limit: 15,
+        ENABLED: '',
+        MEANING: ''
+      },
+      skillListTotalPage: 0,
+      skillListLoading: false,
+
+      dialogSkill: false,
+      editForm: {},
+      ReturnOrder: {}
+    }
+  },
+  created () {
+    this.getIndex()
+  },
+  methods: {
+    // 清空
+    eliminateClick () {
+      this.formData.NAME = ''
+      this.formData.DESC = ''
+      this.formData.Page = 1
+      this.formData.Limit = 15
+      this.getLoadData()
+    },
+    // 新增技能
+    skillListAdd () {
+      const skillTable = this.$refs.skillTable
+      const records = {
+        LOOKUP_TYPE: 'MES_SKILL_NAME',
+        MEANING: '',
+        ENABLED: 'Y'
+      }
+      skillTable.insertAt(records)
+    },
+    // 保存技能
+    skillListSave () {
+      var postdata = this.$refs.skillTable.getRecordset()
+      if (
+        postdata.insertRecords.length ||
+        postdata.removeRecords.length ||
+        postdata.updateRecords.length
+      ) {
+        this.$refs.skillTable.validate(async valid => {
+          if (valid) {
+            postdata.insertRecords.map((item, index) => {
+              postdata.insertRecords[index].NAME = '技能名称'
+              postdata.insertRecords[index].DESCRIPTION = item.MEANING
+              postdata.insertRecords[index].CHINESE = item.MEANING
+            })
+            postdata.updateRecords.map((item, index) => {
+              postdata.updateRecords[index].NAME = '技能名称'
+              postdata.updateRecords[index].DESCRIPTION = item.MEANING
+              postdata.updateRecords[index].CHINESE = item.MEANING
+            })
+            const res = await SfcdSaveData(postdata)
+            if (res.Result) {
+              this.$notify({
+                title: this.$t('ssc._12'),
+                message: this.$t('ssc._13'),
+                type: 'success',
+                duration: 2000
+              })
+              this.skillStack()
+            } else {
+              this.$message({
+                message: this.$t('publics.tips.isInUsed'),
+                type: 'error'
+              })
+            }
+          }
+        })
+      } else {
+        this.$message({
+          showClose: true,
+          message: this.$t('cdc._26'),
+          type: 'warning'
+        })
+      }
+    },
+    // 搜索技能
+    skillListSearchClick () {
+      this.skillListFrom.Page = 1
+      this.skillStack()
+    },
+    // 点击技能维护
+    skillStackList () {
+      this.dialogSkill = true
+      this.skillListFrom.ENABLED = ''
+      this.skillStack()
+    },
+    // 技能列表
+    async skillStack () {
+      this.skillListLoading = true
+      const res = await SfcsLoadData(this.skillListFrom)
+      this.skillListLoading = false
+      if (res.Result) {
+        this.skillList = res.Result || []
+        this.skillListTotalPage = res.TotalCount || 0
+      }
+    },
+    async removeClick (row, deleteParams = {}) {
+      console.log(row)
+
+      if (row && await this.$confirm(
+        this.$t('publics.tips.makeSureDelete'),
+        this.$t('publics.tips.tips'),
+        {
+          confirmButtonText: this.$t('publics.tips.confirm'),
+          cancelButtonText: this.$t('publics.tips.cancel'),
+          type: 'warning'
+        }
+      ).catch(_ => {
+        /** 取消 */
+      })) {
+        if (row.MEANING === '') {
+          return this.$refs.skillTable.remove(row)
+        }
+        let records = { removeRecords: [] }
+        records.removeRecords.push(row)
+        const res = await SfcdSaveData(records)
+        if (res.Result) {
+          this.$refs.skillTable.remove(row)
+          this.$notify({
+            title: this.$t('ssc._12'),
+            message: this.$t('ssc._19'),
+            type: 'success',
+            duration: 2000
+          })
+        } else {
+          this.$message({
+            message: this.$t('publics.tips.isInUsed'),
+            type: 'error'
+          })
+        }
+      }
+    },
+    // 人员技能维护
+    personSkill () {
+      this.$router.push({
+        path: '/Manager/Index'
+      })
+    },
+    // 新增编辑技能
+    skill_submit () {
+      this.$refs.ruleForm.validate((valid, errInfo) => {
+        if (valid) {
+          this.AddOrModifySave()
+        } else {
+          try {
+            Object.keys(errInfo).forEach((item) => {
+              this.$message.error(errInfo[item][0].message)
+              throw Error(errInfo[item][0].message)
+            })
+          } catch (e) {
+            console.log(e.message)
+          }
+        }
+      })
+    },
+    // 明细编辑
+    skillDetailsEdit (row) {
+      console.log(row)
+      this.skillForm.TRAIN_NAME = row.TRAIN_NAME
+      this.skillForm.STANDARD = row.STANDARD
+      this.skillListFrom.ENABLED = 'Y'
+      this.skillForm.ID = row.ID
+      this.skillForm.OPERATION_ID = row.OPERATION_ID
+      this.dialogVisible = true
+      console.log(this.skillForm)
+      this.skillStack()
+    },
+    // 明细删除
+    skillDetailsDelete (row) {
+      console.log(row)
+      this.$confirm(
+        this.$t('publics.tips.makeSureDelete'),
+        this.$t('publics.tips.tips'),
+        {
+          confirmButtonText: this.$t('publics.tips.confirm'),
+          cancelButtonText: this.$t('publics.tips.cancel'),
+          type: 'warning'
+        }
+      ).then(async () => {
+        const res = await DeleteOneById(row.ID)
+        if (res.ResultCode >= 0) {
+          this.$notify({
+            title: this.$t('publics.tips.success'),
+            message: this.$t('publics.tips.deleteSuccess'),
+            type: 'success',
+            duration: 2000
+          })
+          this.SkillDetails()
+        }
+      })
+    },
+    // 保存工序技能明细
+    async AddOrModifySave () {
+      console.log(this.skillForm)
+      const res = await AddOrModifySave(this.skillForm)
+      if (res.ResultCode === 0) {
+        this.$notify({
+          title: this.$t('publics.tips.tips'),
+          message: this.$t('publics.tips.saveSuccess'),
+          type: 'success',
+          duration: 2000
+        })
+        this.skillForm.TRAIN_NAME = ''
+        this.skillForm.STANDARD = ''
+        this.skillForm.OPERATION_ID = ''
+        this.dialogVisible = false
+        this.SkillDetails()
+      }
+    },
+    // 工序添加技能
+    edit_but (row) {
+      this.skillListFrom.ENABLED = 'Y'
+      this.skillForm.OPERATION_ID = row.ID
+      this.dialogVisible = true
+      this.skillStack()
+    },
+    handleSkillSizeChange (Limit) {
+      this.skillData.Limit = Limit
+      this.SkillDetails()
+    },
+    handleSkillCurrentChange (Page) {
+      this.skillData.Page = Page
+      this.SkillDetails()
+    },
+    cellClick ({ row }) {
+      this.skillData.ID = row.ID
+      this.SkillDetails()
+    },
+    visibleChange (e) {
+      if (!e) {
+        this.skillListFrom.MEANING = ''
+        this.skillListFrom.Page = 1
+        this.skillListFrom.Limit = 15
+        this.skillStack()
+      }
+    },
+    // 工序明细
+    async SkillDetails () {
+      this.skillLoading = true
+      const res = await LoadSkillStandardData(this.skillData)
+      this.skillLoading = false
+      if (res.data) {
+        this.skillDetails = res.data || []
+        this.skillTotalPage = res.count || 0
+      }
+    },
+    async getIndex () {
+      const res = await Index()
+      if (res.Result) {
+        Promise.all([
+          this.getLoadData(),
+          this.getAddOrModify(),
+          this.GetParametersList()
+        ])
+      }
+    },
+    // 获取技能列表
+    async GetParametersList () {
+      const res = await GetParametersList({ lookupType: 'MES_SKILL_NAME' })
+      if (res.Result) {
+        this.skillList = res.Result
+      }
+      console.log(res)
+    },
+    // 格式化操作类型
+    formatterName ({ cellValue }) {
+      if (!cellValue) {
+        return ''
+      }
+      this.category &&
+        this.category.map((item) => {
+          console.log(item)
+          if (item.ID === parseInt(cellValue)) {
+            return item.NAME
+          }
+        })
+      console.log(cellValue)
+    },
+    // 搜索
+    search_but () {
+      this.formData.Page = 1
+      this.getLoadData()
+    },
+    async getLoadData () {
+      this.loading = true
+      const res = await LoadOperationData(this.formData)
+      console.log(res)
+      this.loading = false
+      res.data && res.data.map((item) => {
+        if (item.ENABLED == null)item.ENABLED = 'Y'
+      })
+      this.mainTable = res.data || []
+      console.log(this.mainTable)
+      this.totalPage = res.count || 0
+    },
+    // 暂无使用
+    async enabledChange (index, row) {
+      let EnabledObj = {
+        Id: row.ID,
+        Status: row.ENABLED === 'Y',
+        Operator: this.userinfo.USER_NAME,
+        OperatorDatetime: this.getFluuTime()
+      }
+      this.$confirm(this.$t('cccn._20'), this.$t('cccn._21'), {
+        confirmButtonText: this.$t('cccn._22'),
+        cancelButtonText: this.$t('cccn._23'),
+        type: 'warning'
+      })
+        .then(() => {
+          ChangeEnabled(EnabledObj).then((res) => {
+            if (res.Result) {
+              this.$notify({
+                title: this.$t('cccn._24'),
+                message: this.$t('cccn._25'),
+                type: 'success',
+                duration: 2000
+              })
+            }
+            this.getLoadData()
+          })
+        })
+        .catch(() => {
+          this.getLoadData()
+        })
+    },
+    getFluuTime () {
+      var date = new Date()// 实例一个时间对象；
+      var year = date.getFullYear()// 获取系统的年；
+      var month = date.getMonth() + 1// 获取系统月份，由于月份是从0开始计算，所以要加1
+      var day = date.getDate()
+      var hour = date.getHours()// 获取系统时间
+      var minute = date.getMinutes() // 分
+      var second = date.getSeconds()// 秒
+      return year + '-' + month + '-' + day + ' ' + hour + ':' + minute + ':' + second
+    },
+    // 获取添加编辑下拉
+    async getAddOrModify () {
+      const res = await AddOrModify()
+      console.log(res, 'resres')
+      this.category = res.Result.KindList
+      this.OPERATIONList = res.Result.OperationCategoryList
+    },
+    handleSkillListSizeChange (Limit) {
+      this.skillListFrom.Limit = Limit
+      this.skillStack()
+    },
+    handleSkillListCurrentChange (Page) {
+      this.skillListFrom.Page = Page
+      this.skillStack()
+    }
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+.table-container1 {
+  height: 350px;
+}
+.foot-page {
+  padding: 5px 0;
+}
+.table-container2 {
+  height: calc(100vh - 54px - 20px - 350px - 42px - 190px);
+}
+.dialogskill ::v-deep .el-dialog__body {
+  padding-top: 10px;
+}
+</style>
